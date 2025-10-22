@@ -155,11 +155,13 @@ def callback():
                 
                 if user_id:
                     # Update existing user's UCL data and last login
+                    # Ensure existing users are marked as onboarded (they've used the app before)
                     user_ref = db.collection('users').document(user_id)
                     user_ref.update({
                         'ucl_data': user_info['ucl_data'],
                         'last_login': datetime.utcnow(),
-                        'ucl_token_scope': token_data.get('scope', 'unknown')
+                        'ucl_token_scope': token_data.get('scope', 'unknown'),
+                        'isOnboarded': True  # Existing users should skip onboarding
                     })
                     logger.info(f"Updated existing UCL user: {user_id}")
                 else:
@@ -191,7 +193,8 @@ def callback():
                         'ucl_data': user_info['ucl_data'],
                         'created_at': datetime.utcnow(),
                         'last_login': datetime.utcnow(),
-                        'auth_method': 'ucl_oauth'
+                        'auth_method': 'ucl_oauth',
+                        'isOnboarded': False  # New users should go through onboarding
                     }, merge=True)  # merge=True updates existing fields without overwriting
                 
                 # Generate a custom token for the React Native app
