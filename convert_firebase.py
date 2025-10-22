@@ -45,3 +45,4 @@ def convert_firebase_config():
 
 if __name__ == "__main__":
     convert_firebase_config()
+

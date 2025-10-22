@@ -137,38 +137,62 @@ def callback():
         
         if firebase_initialized:
             try:
-                # Check if user exists in Firebase Auth
-                try:
-                    firebase_user = auth.get_user_by_email(email)
-                    user_id = firebase_user.uid
-                    
-                    # Update user document in Firestore with UCL data
+                # First, check if a UCL user already exists by looking for UCL data in Firestore
+                logger.info(f"Looking for existing UCL user with email: {email}")
+                
+                # Query Firestore for existing UCL users
+                existing_users = db.collection('users').where('ucl_verified', '==', True).where('email', '==', email).limit(1).get()
+                
+                user_id = None
+                is_new_user = False
+                
+                if existing_users:
+                    # User exists - get their Firebase UID
+                    for doc in existing_users:
+                        user_id = doc.id
+                        logger.info(f"Found existing UCL user: {user_id}")
+                        break
+                
+                if user_id:
+                    # Update existing user's UCL data and last login
                     user_ref = db.collection('users').document(user_id)
                     user_ref.update({
-                        'ucl_verified': True,
                         'ucl_data': user_info['ucl_data'],
-                        'last_login': datetime.utcnow()
+                        'last_login': datetime.utcnow(),
+                        'ucl_token_scope': token_data.get('scope', 'unknown')
                     })
+                    logger.info(f"Updated existing UCL user: {user_id}")
+                else:
+                    # No existing UCL user found - create new one
+                    logger.info("No existing UCL user found, creating new user")
+                    is_new_user = True
                     
-                except auth.UserNotFoundError:
-                    # Create new Firebase user
-                    firebase_user = auth.create_user(
-                        email=email,
-                        email_verified=True,  # UCL email is considered verified
-                        display_name=user_data.get('full_name', '')
-                    )
-                    user_id = firebase_user.uid
+                    # Check if Firebase user exists by email (might be from regular signup)
+                    try:
+                        firebase_user = auth.get_user_by_email(email)
+                        user_id = firebase_user.uid
+                        logger.info(f"Found existing Firebase user: {user_id}")
+                    except auth.UserNotFoundError:
+                        # Create new Firebase user
+                        firebase_user = auth.create_user(
+                            email=email,
+                            email_verified=True,  # UCL email is considered verified
+                            display_name=user_data.get('full_name', 'UCL Student')
+                        )
+                        user_id = firebase_user.uid
+                        logger.info(f"Created new Firebase user: {user_id}")
                     
-                    # Create user document in Firestore
+                    # Create/update user document in Firestore
                     user_ref = db.collection('users').document(user_id)
                     user_ref.set({
                         'email': email,
-                        'display_name': user_data.get('full_name', ''),
+                        'display_name': user_data.get('full_name', 'UCL Student'),
                         'ucl_verified': True,
                         'ucl_data': user_info['ucl_data'],
                         'created_at': datetime.utcnow(),
-                        'last_login': datetime.utcnow()
-                    })
+                        'last_login': datetime.utcnow(),
+                        'auth_method': 'ucl_oauth'
+                    }, merge=True)  # merge=True updates existing fields without overwriting
                 
                 # Generate a custom token for the React Native app
                 custom_token = auth.create_custom_token(user_id)
@@ -179,9 +203,10 @@ def callback():
                 
                 # Store the token in a way that the app can retrieve it
                 # We'll use a simple approach: redirect to a success page with the token
-                redirect_url = f"https://conni-ucl-backend-production.up.railway.app/success?token={custom_token_str}"
+                action = "signup" if is_new_user else "login"
+                redirect_url = f"https://conni-ucl-backend-production.up.railway.app/success?token={custom_token_str}&action={action}"
                 
-                logger.info(f"Redirecting to app with URL: {redirect_url}")
+                logger.info(f"Redirecting to app with URL: {redirect_url} (action: {action})")
                 
                 # Return a simple HTML page that tries to open the app
                 html_response = f"""
@@ -263,27 +288,34 @@ def callback():
 def success_page():
     """Success page for OAuth callback"""
     token = request.args.get('token')
+    action = request.args.get('action', 'login')  # 'login' or 'signup'
+    
     if not token:
         return jsonify({'error': 'No token provided'}), 400
+    
+    action_text = "Welcome back!" if action == "login" else "Welcome to Conni!"
+    action_description = "You've successfully logged in with UCL." if action == "login" else "Your UCL account has been created successfully."
     
     return f"""
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Login Successful</title>
+        <title>UCL {action.title()} Successful</title>
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
             body {{ font-family: Arial, sans-serif; text-align: center; padding: 20px; }}
             .success {{ color: #4CAF50; }}
+            .action {{ color: #1E40AF; font-size: 18px; margin: 10px 0; }}
             .token {{ background: #f5f5f5; padding: 10px; border-radius: 5px; word-break: break-all; font-family: monospace; }}
         </style>
     </head>
     <body>
-        <h1 class="success">✅ Login Successful!</h1>
-        <p>Your UCL login was successful. Please return to the Conni app.</p>
+        <h1 class="success">✅ UCL {action.title()} Successful!</h1>
+        <p class="action">{action_text}</p>
+        <p>{action_description}</p>
         <p><strong>Token:</strong></p>
         <div class="token">{token}</div>
-        <p><small>Copy this token and paste it in the Conni app to complete your login.</small></p>
+        <p><small>Copy this token and paste it in the Conni app to complete your {action}.</small></p>
     </body>
     </html>
     """
