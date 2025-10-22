@@ -193,6 +193,7 @@ def health_check():
     return jsonify({
         'status': 'healthy',
         'firebase_initialized': firebase_initialized,
+        'ucl_client_id_set': bool(UCL_CLIENT_ID and UCL_CLIENT_ID != 'your_ucl_client_id'),
         'timestamp': datetime.utcnow().isoformat()
     })
 
