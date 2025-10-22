@@ -89,8 +89,15 @@ def callback():
             timeout=30
         )
         
+        print(f"Token Exchange Status: {token_response.status_code}")
+        print(f"Token Exchange Response: {token_response.text}")
+        
         if token_response.status_code != 200:
-            return jsonify({'error': 'Failed to exchange code for token'}), 400
+            return jsonify({
+                'error': 'Failed to exchange code for token',
+                'status_code': token_response.status_code,
+                'response': token_response.text
+            }), 400
         
         token_data = token_response.json()
         access_token = token_data.get('token')
@@ -104,8 +111,15 @@ def callback():
             timeout=30
         )
         
+        print(f"UCL API Response Status: {user_response.status_code}")
+        print(f"UCL API Response Content: {user_response.text}")
+        
         if user_response.status_code != 200:
-            return jsonify({'error': 'Failed to get user data from UCL'}), 400
+            return jsonify({
+                'error': 'Failed to get user data from UCL',
+                'status_code': user_response.status_code,
+                'response': user_response.text
+            }), 400
         
         user_data = user_response.json()
         
