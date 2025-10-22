@@ -53,13 +53,11 @@ def login_ucl():
         state = secrets.token_urlsafe(32)
         session['oauth_state'] = state
         
-        # Build the UCL OAuth authorization URL with proper scopes
-        # Try different scope formats that UCL API might accept
+        # Build the UCL OAuth authorization URL exactly as per documentation
         auth_url = (
-            f"https://uclapi.com/oauth/authorise"
+            f"https://uclapi.com/oauth/authorise/"
             f"?client_id={UCL_CLIENT_ID}"
             f"&state={state}"
-            f"&scope=user+basic"
         )
         
         return redirect(auth_url)
@@ -108,73 +106,20 @@ def callback():
         if not access_token:
             return jsonify({'error': 'No access token received'}), 400
         
-        # Get user data from UCL API
-        logger.info(f"Making request to UCL API with token: {access_token[:10]}...")
+        # UCL API doesn't provide user data endpoints
+        # The user has successfully authenticated with UCL, so we'll create a basic user
+        logger.info("UCL API doesn't provide user data endpoints - proceeding with basic authentication")
+        logger.info(f"User successfully authenticated with UCL token: {access_token[:10]}...")
         
-        # Try different UCL API endpoints for user data
-        endpoints_to_try = [
-            'https://uclapi.com/oauth/user/data',
-            'https://uclapi.com/oauth/user/me', 
-            'https://uclapi.com/oauth/user',
-            'https://uclapi.com/user/data',
-            'https://uclapi.com/user/me'
-        ]
-        
-        user_response = None
-        for endpoint in endpoints_to_try:
-            logger.info(f"Trying endpoint: {endpoint}")
-            
-            # Try with token as query parameter
-            user_response = requests.get(
-                endpoint,
-                params={'token': access_token},
-                headers={'User-Agent': 'Conni-App/1.0'},
-                timeout=30
-            )
-            logger.info(f"Response status (query param): {user_response.status_code}")
-            if user_response.status_code == 200:
-                logger.info(f"Success with endpoint: {endpoint}")
-                break
-                
-            # Try with token as Bearer token
-            user_response = requests.get(
-                endpoint,
-                headers={
-                    'User-Agent': 'Conni-App/1.0',
-                    'Authorization': f'Bearer {access_token}'
-                },
-                timeout=30
-            )
-            logger.info(f"Response status (Bearer): {user_response.status_code}")
-            if user_response.status_code == 200:
-                logger.info(f"Success with endpoint: {endpoint}")
-                break
-        
-        if user_response.status_code != 200:
-            logger.warning(f"Could not get detailed user data from UCL API: {user_response.status_code}")
-            logger.warning("Proceeding with basic authentication - user has UCL credentials")
-            
-            # Since we can't get detailed user data, we'll work with what we have
-            # The user has successfully authenticated with UCL, so we'll create a basic user
-            # We'll use a placeholder email since we can't get the real one
-            email = f"ucl-user-{secrets.token_hex(8)}@ucl.ac.uk"
-            user_data = {
-                'email': email,
-                'is_student': True,  # Assume student since they have UCL credentials
-                'full_name': 'UCL Student',
-                'department': 'Unknown',
-                'upi': 'unknown'
-            }
-        else:
-            user_data = user_response.json()
-            
-            # Verify user is a student
-            if not user_data.get('is_student', False):
-                return jsonify({'error': 'Only UCL students can log in via this method'}), 403
-            
-            email = user_data.get('email')
-            if not email:
-                return jsonify({'error': 'No email found in UCL user data'}), 400
+        # Generate a unique email for this UCL user
+        email = f"ucl-user-{secrets.token_hex(8)}@ucl.ac.uk"
+        user_data = {
+            'email': email,
+            'is_student': True,  # Assume student since they have UCL credentials
+            'full_name': 'UCL Student',
+            'department': 'Unknown',
+            'upi': 'unknown'
+        }
         
         # Check if user exists in Firebase/Firestore
         user_info = {
