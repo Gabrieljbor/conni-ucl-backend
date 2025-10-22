@@ -174,9 +174,12 @@ def callback():
                 custom_token = auth.create_custom_token(user_id)
                 
                 # Redirect back to the app with the custom token
-                app_scheme = "conni"  # Update this to your app's URL scheme
+                # For Expo Go, we'll use a different approach
                 custom_token_str = custom_token.decode('utf-8')
-                redirect_url = f"{app_scheme}://ucl-callback?token={custom_token_str}"
+                
+                # Store the token in a way that the app can retrieve it
+                # We'll use a simple approach: redirect to a success page with the token
+                redirect_url = f"https://conni-ucl-backend-production.up.railway.app/success?token={custom_token_str}"
                 
                 logger.info(f"Redirecting to app with URL: {redirect_url}")
                 
@@ -255,6 +258,35 @@ def callback():
         return jsonify({'error': f'Network error: {str(e)}'}), 500
     except Exception as e:
         return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
+
+@app.route('/success')
+def success_page():
+    """Success page for OAuth callback"""
+    token = request.args.get('token')
+    if not token:
+        return jsonify({'error': 'No token provided'}), 400
+    
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Login Successful</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            body {{ font-family: Arial, sans-serif; text-align: center; padding: 20px; }}
+            .success {{ color: #4CAF50; }}
+            .token {{ background: #f5f5f5; padding: 10px; border-radius: 5px; word-break: break-all; font-family: monospace; }}
+        </style>
+    </head>
+    <body>
+        <h1 class="success">✅ Login Successful!</h1>
+        <p>Your UCL login was successful. Please return to the Conni app.</p>
+        <p><strong>Token:</strong></p>
+        <div class="token">{token}</div>
+        <p><small>Copy this token and paste it in the Conni app to complete your login.</small></p>
+    </body>
+    </html>
+    """
 
 @app.route('/health')
 def health_check():
