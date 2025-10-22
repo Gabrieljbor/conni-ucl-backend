@@ -53,11 +53,12 @@ def login_ucl():
         state = secrets.token_urlsafe(32)
         session['oauth_state'] = state
         
-        # Build the UCL OAuth authorization URL
+        # Build the UCL OAuth authorization URL with proper scopes
         auth_url = (
             f"https://uclapi.com/oauth/authorise"
             f"?client_id={UCL_CLIENT_ID}"
             f"&state={state}"
+            f"&scope=user"
         )
         
         return redirect(auth_url)
@@ -109,25 +110,44 @@ def callback():
         # Get user data from UCL API
         logger.info(f"Making request to UCL API with token: {access_token[:10]}...")
         
-        # Try the user/data endpoint first
-        user_response = requests.get(
-            f'https://uclapi.com/oauth/user/data',
-            params={'token': access_token},
-            headers={'User-Agent': 'Conni-App/1.0'},
-            timeout=30
-        )
-        logger.info(f"UCL API response status: {user_response.status_code}")
+        # Try different UCL API endpoints for user data
+        endpoints_to_try = [
+            'https://uclapi.com/oauth/user/data',
+            'https://uclapi.com/oauth/user/me', 
+            'https://uclapi.com/oauth/user',
+            'https://uclapi.com/user/data',
+            'https://uclapi.com/user/me'
+        ]
         
-        # If that fails, try the user/me endpoint
-        if user_response.status_code != 200:
-            logger.info("Trying alternative endpoint: user/me")
+        user_response = None
+        for endpoint in endpoints_to_try:
+            logger.info(f"Trying endpoint: {endpoint}")
+            
+            # Try with token as query parameter
             user_response = requests.get(
-                f'https://uclapi.com/oauth/user/me',
+                endpoint,
                 params={'token': access_token},
                 headers={'User-Agent': 'Conni-App/1.0'},
                 timeout=30
             )
-            logger.info(f"Alternative endpoint response status: {user_response.status_code}")
+            logger.info(f"Response status (query param): {user_response.status_code}")
+            if user_response.status_code == 200:
+                logger.info(f"Success with endpoint: {endpoint}")
+                break
+                
+            # Try with token as Bearer token
+            user_response = requests.get(
+                endpoint,
+                headers={
+                    'User-Agent': 'Conni-App/1.0',
+                    'Authorization': f'Bearer {access_token}'
+                },
+                timeout=30
+            )
+            logger.info(f"Response status (Bearer): {user_response.status_code}")
+            if user_response.status_code == 200:
+                logger.info(f"Success with endpoint: {endpoint}")
+                break
         
         if user_response.status_code != 200:
             logger.error(f"UCL API Error: Status {user_response.status_code}")
