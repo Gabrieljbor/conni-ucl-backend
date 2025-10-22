@@ -4,7 +4,6 @@ import secrets
 import os
 from datetime import datetime, timedelta
 import json
-from urllib.parse import quote
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'supersecretkey123')
@@ -45,13 +44,6 @@ except Exception as e:
 def login_ucl():
     """Initiate UCL OAuth flow"""
     try:
-        # Validate configuration
-        if not UCL_CLIENT_ID or UCL_CLIENT_ID == 'your_ucl_client_id':
-            return jsonify({'error': 'UCL_CLIENT_ID not configured'}), 500
-        
-        if not UCL_CLIENT_SECRET or UCL_CLIENT_SECRET == 'your_ucl_client_secret':
-            return jsonify({'error': 'UCL_CLIENT_SECRET not configured'}), 500
-        
         # Generate a random state parameter for security
         state = secrets.token_urlsafe(32)
         session['oauth_state'] = state
@@ -61,19 +53,9 @@ def login_ucl():
             f"https://uclapi.com/oauth/authorise"
             f"?client_id={UCL_CLIENT_ID}"
             f"&state={state}"
-            f"&redirect_uri={quote(REDIRECT_URI, safe='')}"
         )
         
-        # Alternative format - try without redirect_uri first
-        auth_url_simple = f"https://uclapi.com/oauth/authorise?client_id={UCL_CLIENT_ID}&state={state}"
-        
-        print(f"Generated UCL Auth URL (with redirect_uri): {auth_url}")
-        print(f"Generated UCL Auth URL (simple): {auth_url_simple}")
-        print(f"Client ID: {UCL_CLIENT_ID}")
-        print(f"Redirect URI: {REDIRECT_URI}")
-        
-        # Try the simple format first
-        return redirect(auth_url_simple)
+        return redirect(auth_url)
     except Exception as e:
         return jsonify({'error': f'Failed to initiate UCL login: {str(e)}'}), 500
 
@@ -107,15 +89,8 @@ def callback():
             timeout=30
         )
         
-        print(f"Token Exchange Status: {token_response.status_code}")
-        print(f"Token Exchange Response: {token_response.text}")
-        
         if token_response.status_code != 200:
-            return jsonify({
-                'error': 'Failed to exchange code for token',
-                'status_code': token_response.status_code,
-                'response': token_response.text
-            }), 400
+            return jsonify({'error': 'Failed to exchange code for token'}), 400
         
         token_data = token_response.json()
         access_token = token_data.get('token')
@@ -125,19 +100,12 @@ def callback():
         
         # Get user data from UCL API
         user_response = requests.get(
-            f'https://uclapi.com/oauth/user/data?token={access_token}&client_secret={UCL_CLIENT_SECRET}',
+            f'https://uclapi.com/oauth/user/data?token={access_token}',
             timeout=30
         )
         
-        print(f"UCL API Response Status: {user_response.status_code}")
-        print(f"UCL API Response Content: {user_response.text}")
-        
         if user_response.status_code != 200:
-            return jsonify({
-                'error': 'Failed to get user data from UCL',
-                'status_code': user_response.status_code,
-                'response': user_response.text
-            }), 400
+            return jsonify({'error': 'Failed to get user data from UCL'}), 400
         
         user_data = user_response.json()
         
