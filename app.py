@@ -4,9 +4,14 @@ import secrets
 import os
 from datetime import datetime, timedelta
 import json
+import logging
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'supersecretkey123')
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # UCL API Configuration
 UCL_CLIENT_ID = os.environ.get('UCL_CLIENT_ID', 'your_ucl_client_id')
@@ -90,27 +95,43 @@ def callback():
         )
         
         if token_response.status_code != 200:
-            print(f"Token exchange error: Status {token_response.status_code}")
-            print(f"Response: {token_response.text}")
+            logger.error(f"Token exchange error: Status {token_response.status_code}")
+            logger.error(f"Response: {token_response.text}")
             return jsonify({'error': f'Failed to exchange code for token: {token_response.status_code}'}), 400
         
         token_data = token_response.json()
-        print(f"Token response: {token_data}")
+        logger.info(f"Token response: {token_data}")
         access_token = token_data.get('token')
         
         if not access_token:
             return jsonify({'error': 'No access token received'}), 400
         
         # Get user data from UCL API
+        logger.info(f"Making request to UCL API with token: {access_token[:10]}...")
+        
+        # Try the user/data endpoint first
         user_response = requests.get(
             f'https://uclapi.com/oauth/user/data',
             params={'token': access_token},
+            headers={'User-Agent': 'Conni-App/1.0'},
             timeout=30
         )
+        logger.info(f"UCL API response status: {user_response.status_code}")
+        
+        # If that fails, try the user/me endpoint
+        if user_response.status_code != 200:
+            logger.info("Trying alternative endpoint: user/me")
+            user_response = requests.get(
+                f'https://uclapi.com/oauth/user/me',
+                params={'token': access_token},
+                headers={'User-Agent': 'Conni-App/1.0'},
+                timeout=30
+            )
+            logger.info(f"Alternative endpoint response status: {user_response.status_code}")
         
         if user_response.status_code != 200:
-            print(f"UCL API Error: Status {user_response.status_code}")
-            print(f"Response: {user_response.text}")
+            logger.error(f"UCL API Error: Status {user_response.status_code}")
+            logger.error(f"Response: {user_response.text}")
             return jsonify({'error': f'Failed to get user data from UCL: {user_response.status_code}'}), 400
         
         user_data = user_response.json()
