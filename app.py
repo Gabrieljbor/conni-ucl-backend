@@ -4,6 +4,7 @@ import secrets
 import os
 from datetime import datetime, timedelta
 import json
+from urllib.parse import quote
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'supersecretkey123')
@@ -53,7 +54,7 @@ def login_ucl():
             f"https://uclapi.com/oauth/authorise"
             f"?client_id={UCL_CLIENT_ID}"
             f"&state={state}"
-            f"&redirect_uri={REDIRECT_URI}"
+            f"&redirect_uri={quote(REDIRECT_URI, safe='')}"
         )
         
         print(f"Generated UCL Auth URL: {auth_url}")
