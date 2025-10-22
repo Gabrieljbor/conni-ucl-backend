@@ -45,6 +45,13 @@ except Exception as e:
 def login_ucl():
     """Initiate UCL OAuth flow"""
     try:
+        # Validate configuration
+        if not UCL_CLIENT_ID or UCL_CLIENT_ID == 'your_ucl_client_id':
+            return jsonify({'error': 'UCL_CLIENT_ID not configured'}), 500
+        
+        if not UCL_CLIENT_SECRET or UCL_CLIENT_SECRET == 'your_ucl_client_secret':
+            return jsonify({'error': 'UCL_CLIENT_SECRET not configured'}), 500
+        
         # Generate a random state parameter for security
         state = secrets.token_urlsafe(32)
         session['oauth_state'] = state
@@ -57,11 +64,16 @@ def login_ucl():
             f"&redirect_uri={quote(REDIRECT_URI, safe='')}"
         )
         
-        print(f"Generated UCL Auth URL: {auth_url}")
+        # Alternative format - try without redirect_uri first
+        auth_url_simple = f"https://uclapi.com/oauth/authorise?client_id={UCL_CLIENT_ID}&state={state}"
+        
+        print(f"Generated UCL Auth URL (with redirect_uri): {auth_url}")
+        print(f"Generated UCL Auth URL (simple): {auth_url_simple}")
         print(f"Client ID: {UCL_CLIENT_ID}")
         print(f"Redirect URI: {REDIRECT_URI}")
         
-        return redirect(auth_url)
+        # Try the simple format first
+        return redirect(auth_url_simple)
     except Exception as e:
         return jsonify({'error': f'Failed to initiate UCL login: {str(e)}'}), 500
 
