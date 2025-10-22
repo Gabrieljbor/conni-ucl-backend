@@ -175,9 +175,44 @@ def callback():
                 
                 # Redirect back to the app with the custom token
                 app_scheme = "conni"  # Update this to your app's URL scheme
-                redirect_url = f"{app_scheme}://ucl-callback?token={custom_token.decode('utf-8')}"
+                custom_token_str = custom_token.decode('utf-8')
+                redirect_url = f"{app_scheme}://ucl-callback?token={custom_token_str}"
                 
-                return redirect(redirect_url)
+                logger.info(f"Redirecting to app with URL: {redirect_url}")
+                
+                # Return a simple HTML page that tries to open the app
+                html_response = f"""
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Login Successful</title>
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                </head>
+                <body>
+                    <h1>Login Successful!</h1>
+                    <p>Redirecting to Conni app...</p>
+                    <script>
+                        // Try to open the app
+                        window.location.href = "{redirect_url}";
+                        
+                        // Fallback: show instructions if app doesn't open
+                        setTimeout(function() {{
+                            document.body.innerHTML = `
+                                <h1>Login Successful!</h1>
+                                <p>Please return to the Conni app to complete your login.</p>
+                                <p>If the app didn't open automatically, please:</p>
+                                <ol>
+                                    <li>Return to the Conni app</li>
+                                    <li>Try logging in again</li>
+                                </ol>
+                            `;
+                        }}, 3000);
+                    </script>
+                </body>
+                </html>
+                """
+                
+                return html_response
                 
             except FirebaseError as e:
                 return jsonify({'error': f'Firebase error: {str(e)}'}), 500
