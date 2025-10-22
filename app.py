@@ -107,7 +107,7 @@ def callback():
         
         # Get user data from UCL API
         user_response = requests.get(
-            f'https://uclapi.com/oauth/user/data?token={access_token}',
+            f'https://uclapi.com/oauth/user/data?token={access_token}&client_secret={UCL_CLIENT_SECRET}',
             timeout=30
         )
         
