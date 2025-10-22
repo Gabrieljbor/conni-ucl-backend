@@ -53,7 +53,12 @@ def login_ucl():
             f"https://uclapi.com/oauth/authorise"
             f"?client_id={UCL_CLIENT_ID}"
             f"&state={state}"
+            f"&redirect_uri={REDIRECT_URI}"
         )
+        
+        print(f"Generated UCL Auth URL: {auth_url}")
+        print(f"Client ID: {UCL_CLIENT_ID}")
+        print(f"Redirect URI: {REDIRECT_URI}")
         
         return redirect(auth_url)
     except Exception as e:
