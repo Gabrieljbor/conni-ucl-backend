@@ -111,8 +111,15 @@ def callback():
         logger.info("UCL API doesn't provide user data endpoints - proceeding with basic authentication")
         logger.info(f"User successfully authenticated with UCL token: {access_token[:10]}...")
         
-        # Generate a unique email for this UCL user
-        email = f"ucl-user-{secrets.token_hex(8)}@ucl.ac.uk"
+        # Generate a stable identifier based on token hash
+        # The same UCL user will always get the same hash
+        import hashlib
+        token_hash = hashlib.sha256(access_token.encode()).hexdigest()[:16]
+        ucl_user_id = f"ucl-{token_hash}"
+        email = f"{ucl_user_id}@ucl.ac.uk"
+        
+        logger.info(f"Using UCL user identifier: {ucl_user_id} with email: {email}")
+        
         user_data = {
             'email': email,
             'is_student': True,  # Assume student since they have UCL credentials
@@ -140,8 +147,8 @@ def callback():
                 # First, check if a UCL user already exists by looking for UCL data in Firestore
                 logger.info(f"Looking for existing UCL user with email: {email}")
                 
-                # Query Firestore for existing UCL users
-                existing_users = db.collection('users').where('ucl_verified', '==', True).where('email', '==', email).limit(1).get()
+                # Query Firestore for existing UCL users by email
+                existing_users = db.collection('users').where('email', '==', email).limit(1).get()
                 
                 user_id = None
                 is_new_user = False
@@ -150,7 +157,7 @@ def callback():
                     # User exists - get their Firebase UID
                     for doc in existing_users:
                         user_id = doc.id
-                        logger.info(f"Found existing UCL user: {user_id}")
+                        logger.info(f"Found existing user with email {email}: {user_id}")
                         break
                 
                 if user_id:
@@ -309,7 +316,19 @@ def success_page():
             body {{ font-family: Arial, sans-serif; text-align: center; padding: 20px; }}
             .success {{ color: #4CAF50; }}
             .action {{ color: #1E40AF; font-size: 18px; margin: 10px 0; }}
-            .token {{ background: #f5f5f5; padding: 10px; border-radius: 5px; word-break: break-all; font-family: monospace; }}
+            .token {{ background: #f5f5f5; padding: 10px; border-radius: 5px; word-break: break-all; font-family: monospace; margin: 10px 0; }}
+            .copy-btn {{ 
+                background: #836FFF; 
+                color: white; 
+                border: none; 
+                padding: 10px 20px; 
+                border-radius: 5px; 
+                cursor: pointer; 
+                font-size: 16px;
+                margin: 10px 0;
+            }}
+            .copy-btn:hover {{ background: #6B46C1; }}
+            .copied {{ background: #4CAF50 !important; }}
         </style>
     </head>
     <body>
@@ -317,8 +336,38 @@ def success_page():
         <p class="action">{action_text}</p>
         <p>{action_description}</p>
         <p><strong>Token:</strong></p>
-        <div class="token">{token}</div>
+        <div class="token" id="token">{token}</div>
+        <button class="copy-btn" onclick="copyToken()">📋 Copy Token to Clipboard</button>
         <p><small>Copy this token and paste it in the Conni app to complete your {action}.</small></p>
+        
+        <script>
+            function copyToken() {{
+                const tokenElement = document.getElementById('token');
+                const token = tokenElement.textContent;
+                
+                navigator.clipboard.writeText(token).then(function() {{
+                    const btn = document.querySelector('.copy-btn');
+                    const originalText = btn.textContent;
+                    btn.textContent = '✅ Copied!';
+                    btn.classList.add('copied');
+                    
+                    setTimeout(function() {{
+                        btn.textContent = originalText;
+                        btn.classList.remove('copied');
+                    }}, 2000);
+                }}).catch(function(err) {{
+                    console.error('Could not copy text: ', err);
+                    alert('Failed to copy token. Please manually select and copy the token above.');
+                }});
+            }}
+            
+            // Auto-copy on page load (optional)
+            window.onload = function() {{
+                setTimeout(function() {{
+                    copyToken();
+                }}, 1000);
+            }};
+        </script>
     </body>
     </html>
     """
