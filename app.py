@@ -106,31 +106,52 @@ def callback():
         if not access_token:
             return jsonify({'error': 'No access token received'}), 400
         
-        # UCL API doesn't provide user data endpoints
-        # The user has successfully authenticated with UCL, so we'll create a basic user
-        logger.info("UCL API doesn't provide user data endpoints - proceeding with basic authentication")
-        logger.info(f"User successfully authenticated with UCL token: {access_token[:10]}...")
+        # Fetch user data from UCL API
+        logger.info(f"Fetching user data from UCL API with token: {access_token[:10]}...")
         
-        # Generate a stable identifier based on token hash
-        # The same UCL user will always get the same hash
-        import hashlib
-        token_hash = hashlib.sha256(access_token.encode()).hexdigest()[:16]
-        ucl_user_id = f"ucl-{token_hash}"
-        email = f"{ucl_user_id}@ucl.ac.uk"
+        try:
+            user_response = requests.get(
+                f'https://uclapi.com/oauth/user/data',
+                params={'token': access_token},
+                timeout=30
+            )
+            
+            if user_response.status_code == 200:
+                ucl_user_data = user_response.json()
+                logger.info(f"UCL API user data response: {ucl_user_data}")
+                
+                # Extract user data from UCL API response
+                email = ucl_user_data.get('email', '')
+                full_name = ucl_user_data.get('full_name', 'UCL Student')
+                department = ucl_user_data.get('department', 'Unknown')
+                upi = ucl_user_data.get('upi', 'unknown')
+                is_student = ucl_user_data.get('is_student', True)
+                
+                user_data = {
+                    'email': email,
+                    'is_student': is_student,
+                    'full_name': full_name,
+                    'department': department,
+                    'upi': upi
+                }
+                
+                logger.info(f"Successfully retrieved UCL user data for: {email}")
+            else:
+                logger.error(f"Failed to get user data from UCL: Status {user_response.status_code}")
+                logger.error(f"Response: {user_response.text}")
+                return jsonify({'error': f'Failed to get user data from UCL: {user_response.status_code}'}), 400
+                
+        except requests.RequestException as e:
+            logger.error(f"Network error fetching UCL user data: {e}")
+            return jsonify({'error': f'Network error: {str(e)}'}), 500
         
-        logger.info(f"Using UCL user identifier: {ucl_user_id} with email: {email}")
-        
-        user_data = {
-            'email': email,
-            'is_student': True,  # Assume student since they have UCL credentials
-            'full_name': 'UCL Student',
-            'department': 'Unknown',
-            'upi': 'unknown'
-        }
+        if not email:
+            logger.error("No email received from UCL API")
+            return jsonify({'error': 'No email received from UCL API'}), 400
         
         # Check if user exists in Firebase/Firestore
         user_info = {
-            'email': email,
+            'email': user_data.get('email'),
             'ucl_data': {
                 'department': user_data.get('department', 'Unknown'),
                 'full_name': user_data.get('full_name', 'UCL Student'),
@@ -145,10 +166,11 @@ def callback():
         if firebase_initialized:
             try:
                 # First, check if a UCL user already exists by looking for UCL data in Firestore
-                logger.info(f"Looking for existing UCL user with email: {email}")
+                logger.info(f"Looking for existing UCL user with email: {user_data.get('email')}")
                 
                 # Query Firestore for existing UCL users by email
-                existing_users = db.collection('users').where('email', '==', email).limit(1).get()
+                # Use the real UCL email to find existing users
+                existing_users = db.collection('users').where('email', '==', user_data.get('email')).limit(1).get()
                 
                 user_id = None
                 is_new_user = False
@@ -177,14 +199,15 @@ def callback():
                     is_new_user = True
                     
                     # Check if Firebase user exists by email (might be from regular signup)
+                    ucl_email = user_data.get('email')
                     try:
-                        firebase_user = auth.get_user_by_email(email)
+                        firebase_user = auth.get_user_by_email(ucl_email)
                         user_id = firebase_user.uid
                         logger.info(f"Found existing Firebase user: {user_id}")
                     except auth.UserNotFoundError:
                         # Create new Firebase user
                         firebase_user = auth.create_user(
-                            email=email,
+                            email=ucl_email,
                             email_verified=True,  # UCL email is considered verified
                             display_name=user_data.get('full_name', 'UCL Student')
                         )
@@ -194,7 +217,7 @@ def callback():
                     # Create/update user document in Firestore
                     user_ref = db.collection('users').document(user_id)
                     user_ref.set({
-                        'email': email,
+                        'email': user_data.get('email'),
                         'display_name': user_data.get('full_name', 'UCL Student'),
                         'ucl_verified': True,
                         'ucl_data': user_info['ucl_data'],
