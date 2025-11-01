@@ -244,67 +244,7 @@ def callback():
                 
                 logger.info(f"Redirecting to app with URL: {redirect_url} (action: {action})")
                 
-                # Return a simple HTML page that tries to open the app
-                html_response = f"""
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <title>Login Successful</title>
-                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                    <style>
-                        body {{ font-family: Arial, sans-serif; text-align: center; padding: 20px; }}
-                        .success {{ color: #4CAF50; }}
-                        .instructions {{ margin: 20px 0; }}
-                        button {{ background: #836FFF; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; }}
-                    </style>
-                </head>
-                <body>
-                    <h1 class="success">✅ Login Successful!</h1>
-                    <p>Redirecting to Conni app...</p>
-                    <div class="instructions">
-                        <button onclick="openApp()">Open Conni App</button>
-                    </div>
-                    <p><small>If the app doesn't open, please return to the Conni app manually.</small></p>
-                    
-                    <script>
-                        function openApp() {{
-                            console.log('Attempting to open app with URL: {redirect_url}');
-                            
-                            // Try multiple methods to open the app
-                            window.location.href = "{redirect_url}";
-                            
-                            // Also try creating a hidden iframe (for iOS)
-                            const iframe = document.createElement('iframe');
-                            iframe.style.display = 'none';
-                            iframe.src = "{redirect_url}";
-                            document.body.appendChild(iframe);
-                            
-                            // Remove iframe after a short delay
-                            setTimeout(() => {{
-                                document.body.removeChild(iframe);
-                            }}, 1000);
-                        }}
-                        
-                        // Try to open the app immediately
-                        setTimeout(openApp, 500);
-                        
-                        // Show instructions after 5 seconds
-                        setTimeout(function() {{
-                            document.querySelector('.instructions').innerHTML = `
-                                <p><strong>If the app didn't open automatically:</strong></p>
-                                <ol style="text-align: left; max-width: 300px; margin: 0 auto;">
-                                    <li>Return to the Conni app</li>
-                                    <li>You should be logged in automatically</li>
-                                    <li>If not, try the UCL login again</li>
-                                </ol>
-                            `;
-                        }}, 5000);
-                    </script>
-                </body>
-                </html>
-                """
-                
-                return html_response
+                return redirect(redirect_url)
                 
             except FirebaseError as e:
                 return jsonify({'error': f'Firebase error: {str(e)}'}), 500
