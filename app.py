@@ -420,6 +420,39 @@ def index():
         }
     })
 
+@app.route('/.well-known/apple-app-site-association')
+def apple_app_site_association():
+    """Serves the Apple App Site Association file."""
+    # ⚠️ IMPORTANT: Replace YOUR_TEAM_ID and com.mycompany.conni
+    data = {
+        "applinks": {
+            "details": [
+                {
+                    "appID": "5ZHL4H672X.com.mycompany.conni",
+                    "paths": [ "/success" ]
+                }
+            ]
+        }
+    }
+    # Flask's jsonify automatically sets Content-Type: application/json
+    return jsonify(data)
+
+@app.route('/.well-known/assetlinks.json')
+def assetlinks():
+    """Serves the Android Asset Links file."""
+    # ⚠️ IMPORTANT: Replace com.mycompany.conni and YOUR_SHA256_FINGERPRINT
+    data = [
+      {
+        "relation": ["delegate_permission/common.handle_all_urls"],
+        "target": {
+          "namespace": "android_app",
+          "package_name": "com.mycompany.conni",
+          "sha256_cert_fingerprints": ["69:F3:2B:04:F5:C0:32:6B:4F:10:21:5E:8E:07:6A:A6:F0:92:9F:51:F1:50:0A:1F:3D:02:48:91:A8:C9:D7:8C"]
+        }
+      }
+    ]
+    return jsonify(data)
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(debug=False, host='0.0.0.0', port=port)
