@@ -429,7 +429,7 @@ def apple_app_site_association():
             "details": [
                 {
                     "appID": "5ZHL4H672X.com.mycompany.conni",
-                    "paths": [ "/success" ]
+                    "paths": [ "/*" ]
                 }
             ]
         }
