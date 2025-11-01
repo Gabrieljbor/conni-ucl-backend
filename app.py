@@ -447,7 +447,7 @@ def assetlinks():
         "target": {
           "namespace": "android_app",
           "package_name": "com.mycompany.conni",
-          "sha256_cert_fingerprints": ["69:F3:2B:04:F5:C0:32:6B:4F:10:21:5E:8E:07:6A:A6:F0:92:9F:51:F1:50:0A:1F:3D:02:48:91:A8:C9:D7:8C"]
+          "sha256_cert_fingerprints": ["94:C8:4A:3D:94:8F:60:2B:4C:18:FF:AD:8D:2C:82:6D:33:99:CF:59:2F:F0:44:E6:80:15:56:2B:82:B1:91:30"]
         }
       }
     ]
