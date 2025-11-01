@@ -240,7 +240,7 @@ def callback():
                 # Store the token in a way that the app can retrieve it
                 # We'll use a simple approach: redirect to a success page with the token
                 action = "signup" if is_new_user else "login"
-                redirect_url = f"https://conni-ucl-backend-production.up.railway.app/success?token={custom_token_str}&action={action}"
+                redirect_url = f"conni://success?token={custom_token_str}&action={action}"
                 
                 logger.info(f"Redirecting to app with URL: {redirect_url} (action: {action})")
                 
